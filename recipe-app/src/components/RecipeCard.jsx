@@ -53,7 +53,7 @@ export default function RecipeCard({ recipe, refresh }) {
 
   setLoadingLike(true)
 
-  // 1️⃣ Insert like row first
+  // Insert like row first
   const { error } = await supabase.from('recipe_likes').insert({
     recipe_id: recipe.id,
     user_id: user.id
@@ -71,7 +71,7 @@ export default function RecipeCard({ recipe, refresh }) {
     return
   }
 
-  // 2️⃣ Increment likes count atomically via RPC
+  // Increment likes count atomically via RPC
   const { error: rpcError } = await supabase.rpc('increment_recipe_likes_int', { p_recipe_id: recipe.id })
 
   if (rpcError) {
