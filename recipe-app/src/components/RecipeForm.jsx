@@ -20,19 +20,19 @@ export default function RecipeForm({ refresh }) {
     refresh()
   }
 
-  return (
-    <form onSubmit={handleSubmit}>
-      <input
-        placeholder="Title"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-      />
-      <input
-        placeholder="Description"
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-      />
-      <button>Add Recipe</button>
-    </form>
-  )
+  // return (
+  //   <form onSubmit={handleSubmit}>
+  //     <input
+  //       placeholder="Title"
+  //       value={title}
+  //       onChange={(e) => setTitle(e.target.value)}
+  //     />
+  //     <input
+  //       placeholder="Description"
+  //       value={description}
+  //       onChange={(e) => setDescription(e.target.value)}
+  //     />
+  //     <button>Add Recipe</button>
+  //   </form>
+  // )
 }

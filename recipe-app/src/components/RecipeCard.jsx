@@ -15,50 +15,31 @@ export default function RecipeCard({ recipe, refresh }) {
   const isOwner = recipe.user_id === user?.id
   const canEdit = isAdmin || isOwner
 
-  // Fetch logged-in user once
-  const fetchUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    setUser(user)
-  }
+  // Fetch logged-in user
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUser(data.user))
+  }, [])
 
-  // Check if current user already liked this recipe
-  const fetchUserLike = async (currentUser) => {
-    if (!currentUser) return
+  // Check if user liked recipe
+  useEffect(() => {
+    if (!user) return
 
-    const { data, error } = await supabase
+    supabase
       .from('recipe_likes')
       .select('id')
       .eq('recipe_id', recipe.id)
-      .eq('user_id', currentUser.id)
+      .eq('user_id', user.id)
       .maybeSingle()
-
-    if (error) {
-      console.error('Error fetching like:', error)
-      return
-    }
-
-    setUserLiked(!!data)
-  }
-
-  useEffect(() => {
-    fetchUser()
-  }, [])
-
-  useEffect(() => {
-    if (user) fetchUserLike(user)
-  }, [user])
+      .then(({ data }) => setUserLiked(!!data))
+  }, [user, recipe.id])
 
   const handleSave = async () => {
     const { error } = await supabase
       .from('recipes')
-      .update({
-        title,
-        description
-      })
+      .update({ title, description })
       .eq('id', recipe.id)
 
     if (error) {
-      console.error(error)
       alert('Failed to update recipe')
       return
     }
@@ -67,86 +48,47 @@ export default function RecipeCard({ recipe, refresh }) {
     refresh()
   }
 
-
   const handleLike = async () => {
-  if (loadingLike) return
-  if (!user) {
-    alert('Login to like!')
-    return
-  }
+    if (loadingLike) return
+    if (!user) return alert('Login to like!')
 
-  setLoadingLike(true)
+    setLoadingLike(true)
 
-  if (!userLiked) {
-    // ===== LIKE =====
-    const { error } = await supabase.from('recipe_likes').insert({
-      recipe_id: recipe.id,
-      user_id: user.id
-    })
+    if (!userLiked) {
+      const { error } = await supabase.from('recipe_likes').insert({
+        recipe_id: recipe.id,
+        user_id: user.id
+      })
 
-    if (error) {
-      if (error.code !== '23505') {
-        console.error(error)
-        alert('Failed to like recipe')
-        setLoadingLike(false)
-        return
+      if (!error) {
+        await supabase.rpc('increment_recipe_likes_int', {
+          p_recipe_id: recipe.id
+        })
+        setLikes((prev) => prev + 1)
+        setUserLiked(true)
+      }
+    } else {
+      const { error } = await supabase
+        .from('recipe_likes')
+        .delete()
+        .eq('recipe_id', recipe.id)
+        .eq('user_id', user.id)
+
+      if (!error) {
+        await supabase.rpc('decrement_recipe_likes_int', {
+          p_recipe_id: recipe.id
+        })
+        setLikes((prev) => Math.max(prev - 1, 0))
+        setUserLiked(false)
       }
     }
 
-    const { error: rpcError } = await supabase.rpc(
-      'increment_recipe_likes_int',
-      { p_recipe_id: recipe.id }
-    )
-
-    if (rpcError) {
-      console.error(rpcError)
-      alert('Failed to increment likes')
-    } else {
-      setLikes((prev) => prev + 1)
-      setUserLiked(true)
-    }
-  } else {
-    // ===== UNLIKE =====
-    const { error } = await supabase
-      .from('recipe_likes')
-      .delete()
-      .eq('recipe_id', recipe.id)
-      .eq('user_id', user.id)
-
-    if (error) {
-      console.error(error)
-      alert('Failed to unlike recipe')
-      setLoadingLike(false)
-      return
-    }
-
-    const { error: rpcError } = await supabase.rpc(
-      'decrement_recipe_likes_int',
-      { p_recipe_id: recipe.id }
-    )
-
-    if (rpcError) {
-      console.error(rpcError)
-      alert('Failed to decrement likes')
-    } else {
-      setLikes((prev) => Math.max(prev - 1, 0))
-      setUserLiked(false)
-    }
+    setLoadingLike(false)
+    refresh()
   }
 
-  setLoadingLike(false)
-  refresh()
-}
-
-  // Handle delete (owner OR admin)
   const handleDelete = async () => {
-    if (!user) {
-      alert('You must be logged in')
-      return
-    }
-
-    const confirmed = window.confirm('Delete this recipe?')
-    if (!confirmed) return
+    if (!confirm('Delete this recipe?')) return
 
     const { error } = await supabase
       .from('recipes')
@@ -154,8 +96,7 @@ export default function RecipeCard({ recipe, refresh }) {
       .eq('id', recipe.id)
 
     if (error) {
-      console.error(error)
-      alert('Failed to delete recipe')
+      alert('Delete failed')
       return
     }
 
@@ -163,44 +104,93 @@ export default function RecipeCard({ recipe, refresh }) {
   }
 
   return (
-    <div style={{ border: '1px solid #ccc', padding: '1rem', margin: '1rem 0' }}>
-      <h3>{recipe.title}</h3>
-      <p>{recipe.description}</p>
-
-      <p>Likes: {likes}</p>
-
-      <button onClick={handleLike} disabled={loadingLike}>
-        {userLiked ? 'Unlike 💔' : 'Like ❤️'}
-      </button>
-
-      {(isAdmin || isOwner) && (
-        <>
-        <button onClick={() => setIsEditing(true)}>Edit ✏️</button>
-        <button
-          onClick={handleDelete}
-          style={{ color: 'red', marginLeft: '1rem' }}
-        >
-          Delete
-        </button>
-        </>
+    <div className="group">
+      {/* Image */}
+      {recipe.image_url && (
+        <div className="aspect-square w-full overflow-hidden rounded-lg bg-gray-200">
+          <img
+            src={recipe.image_url}
+            alt={recipe.title}
+            className="h-full w-full object-cover object-center group-hover:opacity-75"
+          />
+        </div>
       )}
 
-      {isEditing ? (
-        <>
-          <input
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-            placeholder="Title"
-          />
-          <textarea
-            value={description}
-            onChange={e => setDescription(e.target.value)}
-            placeholder="Description"
-          />
-          <button onClick={handleSave}>Save</button>
-          <button onClick={() => setIsEditing(false)}>Cancel</button>
-        </>
-      ) : ( "" )}
+      {/* Content */}
+      <div className="mt-4">
+        {isEditing ? (
+          <>
+            <input
+              className="w-full rounded border p-2 mb-2"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+            <textarea
+              className="w-full rounded border p-2 mb-2"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={handleSave}
+                className="rounded bg-green-600 px-3 py-1 text-white"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => setIsEditing(false)}
+                className="rounded bg-gray-300 px-3 py-1"
+              >
+                Cancel
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <h3 className="text-sm text-gray-700 font-medium">
+              {recipe.title}
+            </h3>
+            <p className="mt-1 text-sm text-gray-500">
+              {recipe.description}
+            </p>
+            <p className="mt-2 text-lg font-semibold text-gray-900">
+              ❤️ {likes}
+            </p>
+          </>
+        )}
+      </div>
+
+      {/* Actions */}
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          onClick={handleLike}
+          disabled={loadingLike}
+          className={`rounded px-3 py-1 text-sm ${
+            userLiked
+              ? 'bg-red-100 text-red-600'
+              : 'bg-gray-100 text-gray-700'
+          }`}
+        >
+          {userLiked ? 'Unlike 💔' : 'Like ❤️'}
+        </button>
+
+        {canEdit && !isEditing && (
+          <>
+            <button
+              onClick={() => setIsEditing(true)}
+              className="rounded bg-blue-100 px-3 py-1 text-sm text-blue-700"
+            >
+              Edit ✏️
+            </button>
+            <button
+              onClick={handleDelete}
+              className="rounded bg-red-100 px-3 py-1 text-sm text-red-700"
+            >
+              Delete
+            </button>
+          </>
+        )}
+      </div>
     </div>
   )
 }
