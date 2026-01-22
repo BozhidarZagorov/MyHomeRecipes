@@ -37,14 +37,17 @@ export default function Header() {
           >
             Home
           </Link>
-
-          <Link
-            to="/recipes"
-            className="rounded-md border px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
-          >
-            Recipes
-          </Link>
         </nav>
+
+        {/* Center */}
+      <div className="absolute left-1/2 -translate-x-1/2">
+        <Link
+          to="/recipes"
+          className="rounded-md border px-6 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+        >
+          Recipes
+        </Link>
+      </div>
 
         {/* Right — Auth buttons */}
         <div className="flex items-center gap-3">
@@ -59,7 +62,8 @@ export default function Header() {
 
               <Link
                 to="/register"
-                className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+                className="rounded-md bg-stone-900 px-4 py-2 text-sm font-medium text-white
+           hover:outline hover:outline-1 hover:outline-amber-500 hover:outline-offset-1"
               >
                 Register
               </Link>
@@ -67,7 +71,7 @@ export default function Header() {
           ) : (
             <button
               onClick={handleLogout}
-              className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+              className="rounded-md px-4 py-2 text-sm font-medium text-white"
             >
               Logout
             </button>
