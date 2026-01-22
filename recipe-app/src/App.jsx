@@ -8,6 +8,7 @@ import RecipeDetails from './pages/RecipeDetails'
 import EditRecipe from './pages/EditRecipe'
 import Footer from './components/Footer'
 import Header from './components/Header'
+import NotFound from './pages/NotFound'
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
       <Route path="/create" element={<CreateRecipe />} />
       <Route path="/recipes/:id" element={<RecipeDetails />} />
       <Route path="/edit/:id" element={<EditRecipe />} />
+      <Route path="*" element={<NotFound />} />
     </Routes>
     </main>
     <Footer />
