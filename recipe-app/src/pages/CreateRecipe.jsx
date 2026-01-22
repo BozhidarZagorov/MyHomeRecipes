@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../services/supabase'
 import { uploadToCloudinary } from '../utils/uploadToCloudinary'
+import { useNavigate } from 'react-router-dom'
+import { useAuthGuard } from '../hooks/RoteGuard'
 
 export default function CreateRecipe({ refresh = () => {} }) {
   const [title, setTitle] = useState('')
@@ -10,6 +12,19 @@ export default function CreateRecipe({ refresh = () => {} }) {
   const [imageFile, setImageFile] = useState(null)
   const [loading, setLoading] = useState(false)
 
+  const navigate = useNavigate()
+  const { user, loading: authLoading } = useAuthGuard(false)
+
+  // Redirect if not logged in
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate("/", { state: { message: "You must be logged in to create a recipe" } })
+    }
+  }, [user, authLoading, navigate])
+
+  // Show loading while auth is checked or redirecting
+  if (authLoading || !user) return <div>Loading...</div>
+
   const handleDrop = (e) => {
     e.preventDefault()
     setImageFile(e.dataTransfer.files[0])
@@ -17,7 +32,7 @@ export default function CreateRecipe({ refresh = () => {} }) {
 
   const handleCreate = async () => {
     if (!title || !description) {
-      alert('Fill all fields')
+      alert('Fill all required fields')
       return
     }
 
@@ -25,34 +40,48 @@ export default function CreateRecipe({ refresh = () => {} }) {
     let imageUrl = null
 
     try {
+      // Upload image if provided
       if (imageFile) {
         imageUrl = await uploadToCloudinary(imageFile)
       }
 
-      const { data: { user } } = await supabase.auth.getUser()
+      // Get current user
+      const { data: { user: currentUser } } = await supabase.auth.getUser()
 
-      const { error } = await supabase.from('recipes').insert({
-        title,
-        ingredients,
-        steps,
-        description,
-        image_url: imageUrl,
-        user_id: user.id,
-        likes: 0
-      })
+      // Insert recipe and get the inserted row
+      const { data, error } = await supabase
+        .from('recipes')
+        .insert({
+          title,
+          ingredients,
+          steps,
+          description,
+          image_url: imageUrl,
+          user_id: currentUser.id,
+          likes: 0
+        })
+        .select()
+        .single() // get the inserted recipe
 
       if (error) throw error
 
+      // Reset form
       setTitle('')
+      setIngredients('')
+      setSteps('')
       setDescription('')
       setImageFile(null)
-      refresh()
+      refresh() // optional: refresh parent list
+
+      // Navigate to the new recipe page
+      navigate(`/recipes/${data.id}`)
+
     } catch (err) {
       console.error(err)
       alert(err.message)
+    } finally {
+      setLoading(false)
     }
-
-    setLoading(false)
   }
 
   return (
@@ -87,24 +116,23 @@ export default function CreateRecipe({ refresh = () => {} }) {
             onChange={(e) => setTitle(e.target.value)}
           />
           <input
-            className="border border-gray-300 rounded-md p-3 text-gray-900 w-full "
+            className="border border-gray-300 rounded-md p-3 text-gray-900 w-full"
             placeholder="Description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
           <input
             className="border border-gray-300 rounded-md p-3 text-gray-900 w-full"
-            placeholder="ingredients"
+            placeholder="Ingredients"
             value={ingredients}
             onChange={(e) => setIngredients(e.target.value)}
           />
           <textarea
             className="border border-gray-300 rounded-md p-3 text-gray-900 w-full h-40"
-            placeholder="steps"
+            placeholder="Steps"
             value={steps}
             onChange={(e) => setSteps(e.target.value)}
           />
-          
 
           <button
             onClick={handleCreate}

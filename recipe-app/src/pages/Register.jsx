@@ -1,11 +1,21 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../services/supabase'
 import { useNavigate } from 'react-router-dom'
+import { useAuthGuard } from '../hooks/RoteGuard'
 
 export default function Register() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const navigate = useNavigate()
+
+  const { user, loading } = useAuthGuard(false)
+
+  
+  useEffect(() => {
+    if (user) {
+      navigate("/", { state: { message: "You are already logged in" } })
+    }
+  }, [user, navigate])
 
   const handleRegister = async (e) => {
     e.preventDefault()
