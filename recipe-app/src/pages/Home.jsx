@@ -1,9 +1,18 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../services/supabase'
-import { Link } from 'react-router-dom'
+import { useLocation,Link } from 'react-router-dom'
 
 export default function Home() {
   const [user, setUser] = useState(null)
+  const location = useLocation()
+
+   useEffect(() => {
+    if (location.state?.message) {
+      alert(location.state.message)
+      // clear state so it doesn't show again
+      window.history.replaceState({}, document.title)
+    }
+  }, [location.state])
 
   useEffect(() => {
     // Get initial session
