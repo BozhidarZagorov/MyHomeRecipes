@@ -7,9 +7,7 @@ import { useAuthGuard } from '../hooks/RoteGuard'
 export default function EditRecipe() {
   const { id } = useParams()
   const navigate = useNavigate()
-
   const { user, loading: authLoading } = useAuthGuard()
-
 
   const [recipe, setRecipe] = useState(null)
   const [title, setTitle] = useState('')
@@ -28,10 +26,7 @@ export default function EditRecipe() {
         .eq('id', id)
         .single()
 
-      if (error) {
-        console.error(error)
-        return
-      }
+      if (error) return console.error(error)
 
       setRecipe(data)
       setTitle(data.title)
@@ -46,30 +41,36 @@ export default function EditRecipe() {
     if (user && recipe) {
       const isAdmin = user.app_metadata?.role === 'admin'
       const isOwner = recipe.user_id === user.id
-      const canEdit = isAdmin || isOwner
-
-      if (!canEdit) {
-        navigate("/", { state: { message: "You are not the creator of this recipe!" } })
+      if (!isAdmin && !isOwner) {
+        navigate('/', { state: { message: 'Not authorized' } })
       }
     }
   }, [user, recipe, navigate])
-  
+
   if (authLoading || !user || !recipe) return <div>Loading...</div>
 
   const handleSave = async () => {
-    if (!title || !description) {
-      alert('Title and description are required')
+    // validation
+    if (!title.trim() || !description.trim() || !steps.trim()) {
+      alert('Title, description, and steps are required')
       return
     }
 
+    if (saving) return
     setSaving(true)
+
     try {
       let imageUrl = recipe.image_url
       if (imageFile) imageUrl = await uploadToCloudinary(imageFile)
 
       const { error } = await supabase
         .from('recipes')
-        .update({ title, description, steps, image_url: imageUrl })
+        .update({
+          title: title.trim(),
+          description: description.trim(),
+          steps: steps.trim(),
+          image_url: imageUrl,
+        })
         .eq('id', id)
 
       if (error) throw error
@@ -78,9 +79,11 @@ export default function EditRecipe() {
     } catch (err) {
       console.error(err)
       alert('Failed to update recipe')
+    } finally {
+      setSaving(false)
     }
-    setSaving(false)
   }
+
 
   return (
     <div className="bg-black/30 backdrop-blur-md rounded-xl p-6 shadow-lg max-w-5xl w-full space-y-10 mx-auto mt-10">
